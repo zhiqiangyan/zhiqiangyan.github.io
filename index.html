@@ -1,489 +1,330 @@
-<html lang="en-us"><script src="https://pygame-web.github.io/archives/0.9/pythons.js" type=module id=site data-LINES=57 data-CONSOLE=25 data-python=python3.12 data-os=vtx,fs,snd,gui async defer>#<!--
-
-print("""
-Loading empiri from empiri.apk
-    Pygbag Version : 0.9.2
-    Template Version : 0.9.0
-    Python  : 3.12
-    CDN URL : https://pygame-web.github.io/archives/0.9/
-    Screen  : 1280x720
-    Title   : empiri
-    Folder  : empiri
-    Authors : pgw
-    SPDX-License-Identifier: cookiecutter.spdx
-
-""")
-
-
-# screen pixels (real, hardware)
-WIDTH=1024  # 1280
-HEIGHT=600  # 720
-
-# reference/idealized screen pixels
-REFX = 1980
-REFY = 1080
-
-def u(real, ref, v):
-    if abs(v)<0.9999999:
-        result = int( (float(real)/100.0) * (v*1000))
-        if v<0:
-            return real-result
-        return result
-    return int( (real/ref) * v )
-
-def ux(*argv):
-    global WIDTH, REFX
-    acc = 0
-    for v in argv:
-        acc += u(WIDTH, REFX, v)
-    return acc
-
-def uy(*argv):
-    global HEIGHT, REFY
-    acc = 0
-    for v in argv:
-        acc += u(HEIGHT, REFY, v)
-    return acc
-
-
-
-
-# do not rename
-async def custom_site():
-
-    import sys
-    import asyncio
-    import platform
-    import json
-    from pathlib import Path
-
-
-
-    import embed
-
-
-    platform.document.body.style.background = "#7f7f7f"
-
-    import pygame
-
-    def compose():
-        pygame.display.update()
-        window.chromakey(None, *screen.get_colorkey(), 40)
-
-    pygame.init()
-    pygame.font.init()
-
-    screen = pygame.display.set_mode([ux(.100),uy(.100)], pygame.SRCALPHA, 32)
-    screen.set_colorkey( (0,0,0,0), pygame.RLEACCEL )
-    screen.fill( (0,0,0,0) )
-
-    compose()
-
-    platform.window.transfer.hidden = true
-    platform.window.canvas.style.visibility = "visible"
-
-
-
-    apk = "empiri.apk"
-
-    bundle = "empiri"
-
-    # the C or js loader could do that but be explicit.
-    appdir = Path(f"/data/data/{bundle}") # /data/data/empiri
-    appdir.mkdir()
-
-
-    # mount apk
-
-    cfg = {
-        "io": "url",
-        "type":"mount",
-        "mount" : {
-            "point" : appdir.as_posix(),
-            "path" : "/",
-        },
-        "path" : f"/ => {appdir.as_posix()}",
-    }
-
-
-    track = platform.window.MM.prepare(apk, json.dumps(cfg))
-
-    marginx = ux(.020) # 20%
-    marginy = uy(.045) # 45%
-
-
-    def pg_bar(pos):
-        nonlocal marginx, marginy
-        # resolution of progress bar, recalculate since it may not be know yet.
-        total = track.len or 10  # avoid div0
-        slot = ux(.060)/ total # 60%
-
-        pygame.draw.rect(screen,(10,10,10),( marginx-ux(10), marginy-uy(10), (total*slot)+ux(20), uy(110) ) )
-        pygame.draw.rect(screen,(0,255,0), ( marginx, marginy, track.pos*slot, uy(90)) )
-
-    # wait until zip mount + overlayfs is complete
-    while not track.ready:
-        pg_bar(track.pos)
-        compose()
-        await asyncio.sleep(.1)
-
-    # fill it up in case it was cached and instant download
-    pg_bar(track.len)
-    compose()
-
-
-    # preloader will change dir and prepend it to sys.path
-    platform.run_main(PyConfig, loaderhome= appdir / "assets", loadermain=None)
-
-
-    # wait preloading complete
-    # that includes images and wasm compilation of bundled modules
-    while embed.counter()<0:
-        await asyncio.sleep(.1)
-
-    main = appdir / "assets" / "main.py"
-
-    # start async top level machinery and add a console.
-    await TopLevel_async_handler.start_toplevel(platform.shell, console=window.python.config.debug)
-
-    # now that apk is mounted we have access to font cache
-    # but we need to fill __file__ that is not yet set
-    __import__(__name__).__file__ = str(main)
-
-
-    # now make a prompt
-    fnt = pygame.sysfont.SysFont("freesans",  uy(80) )
-
-    def ui_callback(pkg, error=None):
-        nonlocal fnt
-        if error:
-            prompt = fnt.render(f"{error}", True, "black")
-        else:
-            prompt = fnt.render(f"Setting [{pkg}] up", True, "black")
-        pg_bar(track.len)
-        screen.blit(prompt, ( marginx+ ux(80), marginy - uy(10) ) )
-        compose()
-
-    # test/wait if user media interaction required
-    if not platform.window.MM.UME:
-
-        # now make a prompt
-        fnt = pygame.sysfont.SysFont("freesans",  uy(80) )
-        prompt = fnt.render("Ready to start !", True, "blue")
-        pg_bar(track.len)
-        screen.blit(prompt, ( marginx+ ux(80), marginy - uy(10) ) )
-        compose()
-        print("""
-        * Waiting for media user engagement : please click/touch page *
-    """)
-        while not platform.window.MM.UME:
-            await asyncio.sleep(.1)
-
-    # cleanup
-    screen.fill( (0,0,0,0) )
-    pygame.display.flip()
-
-    await shell.runpy(main, callback=ui_callback)
-
-
-
-import asyncio
-
-asyncio.run( custom_site() )
-
-
-
-
-
-
-
-
-
-
-
-
-# BEGIN BLOCK
-#
-# now this is the html part you can (and should) customize
-# It is not mandatory : pygame-script when it reads the first line (also called
-# shebang ) of above code create absolute minimal widget set
-# required for running with default rules
-#
-# do not alter that comment block it is separating python code from html code
-# =============================================================================
-# --></script><head><!--
-//=============================================================================
-//
-//
-//
-//
-//
-//
-//
-
-    {%- if cookiecutter.comment != "" -%}
-{{cookiecutter.comment}}
-    {% endif %}
-
---><script type="application/javascript">
-// END BLOCK
-
-
-
-// this dict is available under PyConfig.config from __main__
-
-config = {
-    xtermjs : "1" ,
-    _sdl2 : "canvas",
-    user_canvas : 0,
-    user_canvas_managed : 0,
-    ume_block : 1,
-    can_close : 0,
-    archive : "empiri",
-    gui_debug : 3,
-    cdn : "https://pygame-web.github.io/archives/0.9/",
-    autorun : 0,
-    PYBUILD : "3.12"
-}
-
-</script>
-
-    <title>empiri</title>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="viewport" content="height=device-height, initial-scale=1.0">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes"/>
-
-    <link rel="prefetch" href="https://pygame-web.github.io/archives/0.9/pythonrc.py">
-    <link rel="prefetch" href="https://pygame-web.github.io/archives/0.9/vt/xterm.js">
-    <link rel="prefetch" href="https://pygame-web.github.io/archives/0.9/vt/xterm-addon-image.js">
-    <link rel="prefetch" href="https://pygame-web.github.io/archives/0.9/vt/xterm-addon-image.js">
-
-
-    <link rel="icon" type="image/png" href="favicon.png" sizes="16x16">
+    <title>JS心理小屋 - 16型人格深度版</title>
+    <script src="https://unpkg.com/jspsych@7.3.1"></script>
+    <link href="https://unpkg.com/jspsych@7.3.1/css/jspsych.css" rel="stylesheet" type="text/css" />
+    <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        #status {
-            display: inline-block;
-            vertical-align: top;
-            margin-top: 20px;
-            margin-left: 30px;
-            font-weight: bold;
-            color: rgb(120, 120, 120);
-        }
-
-        #progress {
-            height: 20px;
-            width: 300px;
-        }
-
-        div.emscripten { text-align: center; }
-        div.emscripten_border { border: 1px solid black; }
-        div.thick_border { border: 4px solid black; }
-
-        /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-        /* average size of droid screen 470dp x 320dp  */
-        canvas.emscripten {
-            border: 0px none;
-            background-color: transparent;
-            width: 100%;
-            height: 100%;
-            z-index: 5;
-
-            padding: 0;
-            margin: 0 auto;
-
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            right: 0;
-        }
-
         body {
-            font-family: arial;
-            margin: 0;
-            padding: none;
-            background-color:powderblue;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0; padding: 0;
+            color: #333;
         }
 
-        .topright{
-           position:absolute;
-           top:0px;
-           right:0px;
+        /* 大厅 UI */
+        #lobby {
+            max-width: 800px; margin: 80px auto; text-align: center;
+            animation: fadein 0.8s;
         }
+        @keyframes fadein { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-        .bottomright {
-            position:absolute;
-            top: 40%;
-            right: 0px;
-        }
+        .header-title { font-size: 3em; color: #2c3e50; margin-bottom: 10px; font-weight: 800; }
+        .header-subtitle { color: #7f8c8d; margin-bottom: 60px; font-size: 1.2em; }
 
-        .center {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .door-container { display: flex; justify-content: center; gap: 50px; flex-wrap: wrap; }
+        .door {
+            width: 240px; height: 360px; background: white; border-radius: 20px;
+            cursor: pointer; position: relative; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); transition: transform 0.3s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-top: 8px solid #3498db;
         }
+        .door:hover { transform: translateY(-12px); box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
+        .door:nth-child(2) { border-top-color: #e67e22; }
 
-        .trinfo{
-           position:relative;
-           right:0px;
-           border: 1px solid black;
-        }
+        .door-icon { font-size: 5em; margin-bottom: 25px; }
+        .door-title { font-weight: bold; font-size: 1.4em; color: #34495e; margin-bottom: 10px; }
+        .door-tag { font-size: 0.85em; background: #eef2f7; color: #57606f; padding: 6px 15px; border-radius: 20px; font-weight: bold; }
 
-        .framed{
-           position:relative;
-           top:150px;
-           right:10px;
-           border: 1px solid black;
+        /* MBTI 样式 */
+        .mbti-btn {
+            display: block; width: 100%; padding: 20px; margin: 10px 0;
+            border: 2px solid #eef2f7; border-radius: 12px; background: white;
+            text-align: left; transition: all 0.2s; font-size: 1.05em; cursor: pointer;
         }
+        .mbti-btn:hover { border-color: #3498db; background: #fbfdff; }
+
+        /* 霍兰德画像卡片 */
+        .holland-card-btn {
+            width: 100% !important; border: 2px solid #e0e0e0; border-radius: 12px; padding: 18px;
+            text-align: left; cursor: pointer; background: white; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: flex-start; margin: 0;
+            min-height: 240px;
+            position: relative;
+        }
+        .holland-card-btn:hover { border-color: #e67e22; background: #fffaf4; transform: scale(1.02); box-shadow: 0 5px 20px rgba(230, 126, 34, 0.15); }
+        
+        .h-header { display: flex; align-items: center; width: 100%; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .h-icon { font-size: 2.2em; margin-right: 12px; }
+        .h-title { font-weight: bold; font-size: 1.3em; color: #2c3e50; }
+        .h-section { font-size: 0.9em; color: #555; margin-bottom: 8px; line-height: 1.5; width: 100%; }
+        .h-label { font-weight: bold; color: #e67e22; margin-right: 5px; }
+
+        /* 结果页通用 */
+        .result-box {
+            background: white; max-width: 800px; margin: 40px auto; padding: 50px;
+            border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center;
+        }
+        .badge { font-size: 2.5em; font-weight: 800; color: #2c3e50; margin-bottom: 5px; }
+        .badge-subtitle { font-size: 1.2em; color: #e67e22; font-weight: bold; margin-bottom: 20px; letter-spacing: 1px; }
+        .quote { font-style: italic; color: #7f8c8d; margin-bottom: 30px; border-left: 4px solid #3498db; display: inline-block; padding-left: 15px; font-size: 1.1em; line-height: 1.5;}
+
+        /* MBTI 详细反馈文本 */
+        .mbti-desc { text-align: left; background: #f8f9fa; padding: 25px; border-radius: 15px; margin-top: 20px; color: #555; line-height: 1.8; font-size: 1em; }
+        .mbti-desc b { color: #2c3e50; }
+
+        /* 霍兰德无图表结果样式 */
+        .holland-result-container { text-align: left; margin-top: 20px; }
+        .hr-header { display: flex; align-items: center; justify-content: center; margin-bottom: 30px; background: #fff8f0; padding: 20px; border-radius: 15px; border: 1px solid #ffeebb; }
+        .hr-icon { font-size: 4em; margin-right: 20px; }
+        .hr-title { font-size: 2em; font-weight: bold; color: #d35400; }
+        .hr-section { margin-bottom: 25px; background: #fdfdfd; padding: 20px; border-radius: 12px; border-left: 5px solid #e67e22; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+        .hr-label { font-size: 1.1em; font-weight: bold; color: #2c3e50; margin-bottom: 10px; display: block; border-bottom: 1px solid #eee; padding-bottom: 5px;}
+        .hr-text { font-size: 1em; line-height: 1.8; color: #444; }
+
+        #jspsych-target { display: none; min-height: 100vh; }
+        #jspsych-html-button-response-btngroup { width: 100%; }
     </style>
-
-    <script src="https://pygame-web.github.io/archives/0.9//browserfs.min.js"></script>
-
 </head>
-
 <body>
 
-    <div id="transfer" align=center>
-<!--        <div class="spinner" id='spinner'></div> -->
-        <div class="emscripten" id="status">Downloading...</div>
-        <div class="emscripten">
-            <progress value="0" max="100" id="progress"></progress>
-        </div>
-    </div>
+    <div id="lobby">
+        <h1 class="header-title">🛖 心理小屋 v7</h1>
+        <p class="header-subtitle">更懂你的 MBTI 16型人格解析</p>
 
-
-    <canvas class="emscripten" id="canvas"
-width="1px"
-height="1px"
-    oncontextmenu="event.preventDefault()" tabindex=1>
-    </canvas>
-
-    <div id=html></div>
-
-    <div id=crt  class=bottomright >
-
-        <div id="system" hidden>
-            <div class="button-container">
-                <button id="aiostop" disabled>AIO ⏏︎</button>
-                <button id="aiopaused_true" disabled>AIO ■</button>
-                <button id="aiopaused_false" disabled>AIO ▶</button>
-                <button id="pygame_mixer_music_pause" disabled>Music ■</button>
+        <div class="door-container">
+            <div class="door" onclick="startTest('mbti')">
+                <div class="door-icon">⚖️</div>
+                <div class="door-title">MBTI 人格</div>
+                <span class="door-tag">24题 | 16种深度反馈</span>
             </div>
-
-            <div class="button-container">
-                <div id=load_min>min</div>
-                <div id=load_avg>avg</div>
-                <div id=load_max>max</div>
-              <button id="load_rst" disabled>RESET</button>
+            <div class="door" onclick="startTest('holland')">
+                <div class="door-icon">🔭</div>
+                <div class="door-title">霍兰德职业兴趣</div>
+                <span class="door-tag">单次画像选择</span>
             </div>
-
-            <div id="level">(battery level unknown)</div>
-            <div id="stateBattery">(charging state unknown)</div>
-
         </div>
-
-        <div id=box class="emscripten_border" hidden=true>
-
-            <div id="info" class="trinfo"></div>
-
-            <iframe id="iframe" class="framed" name="iframe"
-width="470px" height="90%"
-allowtransparency="true"
-style="z-index: 10;"
-style="background: #FFFFFF;"
-frameborder="1"
-                allowfullscreen="true"
-                webkitallowfullscreen="true"
-                msallowfullscreen="true"
-                mozallowfullscreen="true"
-                sandbox="allow-same-origin allow-top-navigation allow-scripts allow-pointer-lock"
-                allow="autoplay; fullscreen *; geolocation; microphone; camera; midi; monetization; xr-spatial-tracking; gamepad; gyroscope; accelerometer; xr; cross-origin-isolated"
-                src="https://pygame-web.github.io/archives/0.9/empty.html"
-                scrolling="yes">
-            </iframe>
-        </div>
-
     </div>
 
+    <div id="jspsych-target"></div>
 
-    <div id="dlg" hidden>
-        <input type="file" id="dlg_multifile" multiple accept="image/*">
-        <label for="dlg_multifile">Select files</label>
-    </div>
-
-    <div id="pyconsole">
-        <div id="terminal" tabIndex=1 align="left"></div>
-    </div>
-
-    <script type="application/javascript">
-
-    async function custom_onload(debug_hidden) {
-        // this is called before anything python is loaded
-        // make your js customization here
-        console.log(__FILE__, "custom_onload")
-
-        pyconsole.hidden = debug_hidden
-        system.hidden = debug_hidden
-        transfer.hidden = debug_hidden
-        info.hidden = debug_hidden
-        box.hidden =  debug_hidden
-
-    }
-
-    function custom_prerun(){
-        // no python main and no (MEMFS + VFS) yet.
-        console.log(__FILE__, "custom_prerun")
-
-    }
-
-    function custom_postrun(){
-        // python main and no VFS filesystem yet.
-        console.log(__FILE__, "custom_postrun")
-
-        // prevent ff horizontal scroll
-        window.addEventListener("keydown", function(e) {
-            if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
-                if (!python.config.debug)
-                    e.preventDefault();
+    <script>
+        const jsPsych = initJsPsych({
+            display_element: 'jspsych-target',
+            on_finish: function() {
+                const box = document.querySelector('.result-box');
+                if(box) {
+                    box.insertAdjacentHTML('beforeend', 
+                        '<br><button onclick="location.reload()" style="margin-top:30px; padding:12px 35px; border:none; background:#34495e; color:white; border-radius:30px; cursor:pointer; font-size:16px;">🚪 返回大厅</button>'
+                    );
+                }
             }
-        }, false);
-
-    }
-
-    function debug() {
-        // allow to gain access to dev tools from js console
-        // but only on desktop. difficult to reach when in iframe
-        python.config.debug = true
-        custom_onload(false)
-        Module.PyRun_SimpleString("shell.uptime()")
-        window_resize()
-    }
-
-    function info_inline(data){
-        document.getElementById("info").innerHTML = data
-    }
-
-    function info_online(url) {
-        // display info about current APK
-        fetch( url /*, options */)
-            .then((response) => response.text())
-            .then((html) => {
-                info_inline(html);
-        })
-        .catch((error) => {
-            console.warn(error);
         });
-    }
 
-    function frame_online(url) {
-        window.frames["iframe"].location = url;
-    }
+        // ==========================================
+        // 1. MBTI 16种人格数据库 (称号 + 深度反馈)
+        // ==========================================
+        const mbti_results = {
+            "INTJ": { title: "建筑师 (Architect)", quote: "孤独的完美主义者，以逻辑构建世界。", text: "你是富有想象力和战略性的思想家。你对他人的期望很高，对自己更高。你倾向于从全局看问题，善于发现系统中的漏洞并加以改进。你独立、理性，有时显得冷漠，但内心对知识和效率有着火一般的热情。" },
+            "INTP": { title: "逻辑学家 (Logician)", quote: "对万物充满好奇的解构者。", text: "你是天生的发明家，对知识有着止不住的渴望。你喜欢在脑海中构建理论，寻找宇宙的运行规律。社交闲聊让你感到乏味，但当话题转向抽象概念或科学理论时，你会变得滔滔不绝。你是最具有独立思维的个体之一。" },
+            "ENTJ": { title: "指挥官 (Commander)", quote: "天生的领导者，为成就而生。", text: "你是果断、大胆的领导者，善于发现问题并迅速制定解决方案。你充满魅力和自信，能够凝聚众人朝着共同目标努力。对你而言，生活就是一场充满挑战的棋局，而你总是力求胜利。" },
+            "ENTP": { title: "辩论家 (Debater)", quote: "聪明的挑战者，热衷于思维交锋。", text: "你机智、幽默，喜欢从不同角度剖析问题。你并不一定是为了达成共识，而是享受思想碰撞的火花。你讨厌常规和束缚，擅长打破规则，是天生的创新者和创业者。" },
+            "INFJ": { title: "提倡者 (Advocate)", quote: "安静而神秘的理想主义者。", text: "你是最稀有的人格类型之一。你外表安静，内心却波澜壮阔。你有着极强的洞察力和同理心，致力于理解他人的深层动机。你不仅是梦想家，更是行动派，毕生都在为实现心中的理想世界而努力。" },
+            "INFP": { title: "调停者 (Mediator)", quote: "温柔的治愈者，心中有诗。", text: "你看起来害羞冷静，内心却燃烧着激情。你受价值观而非逻辑的引导，对他人的情感极其敏感。你追求真理、善良和美，是天生的艺术家和作家。在纷扰的世界中，你始终守护着内心的一方净土。" },
+            "ENFJ": { title: "主人公 (Protagonist)", quote: "充满魅力的领导者，激励人心。", text: "你热情、利他，善于发现他人的潜能。你不仅自己追求卓越，更渴望帮助周围的人共同成长。你有着极强的感染力，在团队中往往是凝聚人心的核心人物，大家愿意相信并追随你。" },
+            "ENFP": { title: "竞选者 (Campaigner)", quote: "自由的灵魂，充满无限可能。", text: "你热情洋溢，独立且充满同情心。对你来说，生活是宏大的戏剧，充满了互相关联的人和事。你讨厌重复和枯燥，追求创意和自由。你有着极佳的社交天赋，能瞬间点燃气氛，是人群中的开心果。" },
+            "ISTJ": { title: "物流师 (Logistician)", quote: "注重事实，负责任的现实主义者。", text: "你是社会的基石，正直、务实、恪尽职守。你依事实而非假设，做出的承诺必定兑现。你喜欢清晰的规则和秩序，无论是工作还是生活，你都能将其打理得井井有条，是团队中最值得信赖的伙伴。" },
+            "ISFJ": { title: "守卫者 (Defender)", quote: "专注温暖的守护者，时刻准备保护爱人。", text: "你非常专注而温暖，时刻准备着保护你所爱的人。你虽然内向，但拥有极佳的观察力和记忆力，记得住他人的微小细节。你勤勉、奉献，不求回报地为他人服务，是真正的利他主义者。" },
+            "ESTJ": { title: "总经理 (Executive)", quote: "出色的管理者，无可比拟的执行力。", text: "你是传统和秩序的代表。你诚实、果断，坚信依据规则办事是社会运行的基础。你善于管理人员和事务，能够带领团队在混乱中建立秩序。你务实且高效，是天生的项目管理者。" },
+            "ESFJ": { title: "执政官 (Consul)", quote: "极有爱心，时刻受人欢迎。", text: "你是典型的利他主义者，也是社交场合的明星。你关心他人的感受，乐于助人，并希望大家都能和谐相处。你重视传统和忠诚，喜欢组织聚会，确保每个人都感到被照顾和被重视。" },
+            "ISTP": { title: "鉴赏家 (Virtuoso)", quote: "大胆而实际的实验家，擅长使用工具。", text: "你是天生的制造者，从一个个项目中学习，用理性和好奇心去观察世界。你通常冷静而理性，但也有着一颗喜欢冒险的心。你擅长应对危机，在突发状况下往往能保持最清醒的头脑。" },
+            "ISFP": { title: "探险家 (Adventurer)", quote: "灵活有魅力的艺术家，时刻准备探索新事物。", text: "你活在当下，享受生活带来的感官乐趣。你随性、温和，不喜欢被规则束缚。你有着极佳的审美天赋，无论是穿搭还是创作，都透着独特的个人风格。你用行动而非语言来打破常规。" },
+            "ESTP": { title: "企业家 (Entrepreneur)", quote: "聪明、精力充沛，享受边缘生活。", text: "你是行动派，与其坐着讨论理论，不如起身去实践。你活在当下，喜欢解决眼前的问题。你敏锐、直接，有着极强的适应能力。你是天生的冒险家，哪里有挑战，哪里就有你的身影。" },
+            "ESFP": { title: "表演者 (Entertainer)", quote: "自发的、精力充沛的，让生活不再无聊。", text: "如果有人会突然在街上载歌载舞，那一定是你。你慷慨、热情，极具幽默感。你热爱生活，也热爱与人分享这份快乐。对你而言，世界就是舞台，你总是能把平凡的时刻变得闪闪发光。" }
+        };
 
+        // 2. 霍兰德卡片数据 (保持不变)
+        const holland_profiles = [
+            { id: 'R', name: '现实型 (Realistic)', icon: '🔧', traits: '愿意使用工具从事操作性工作，动手能力强。做事保守，较为谦虚，缺乏社交能力，喜欢独立做事。', activities: '喜欢户外活动或操作机器，不喜欢在办公室工作。', careers: '制造业、机械业、农业、特种工程师、军事工作。' },
+            { id: 'I', name: '研究型 (Investigative)', icon: '🔬', traits: '思想家而非实干家，抽象思维能力强，求知欲强。考虑问题理性，做事喜欢精确，喜欢逻辑分析。', activities: '处理信息，探索和理解、研究那些需要分析、思考的抽象问题。', careers: '实验室人员、生物学家、社会学家、程序设计员。' },
+            { id: 'A', name: '艺术型 (Artistic)', icon: '🎨', traits: '有创造力，乐于创造新颖成果，渴望表现个性。做事理想化，追求完美，善于表达，心态较为复杂。', activities: '创造、自我表达、写作、音乐、艺术和戏剧。', careers: '作家、艺术家、设计师、演员、导演、乐队指挥。' },
+            { id: 'S', name: '社会型 (Social)', icon: '🤝', traits: '喜欢与人交往、善言谈、愿意教导别人。关心社会问题，寻求广泛的人际关系，看重社会义务。', activities: '帮助别人，喜欢与人合作，热情关心他人的幸福，从事启迪、培训事务。', careers: '教师、社会工作者、咨询师、公关人员。' },
+            { id: 'E', name: '企业型 (Enterprising)', icon: '👔', traits: '追求权力、权威和财富，具有领导才能。喜欢竞争、敢冒风险。为人务实，做事有较强的目的性。', activities: '领导和影响别人，善于说服别人。经营、管理、劝服、监督。', careers: '商业管理、律师、销售经理、采购员、投资商。' },
+            { id: 'C', name: '常规型 (Conventional)', icon: '📊', traits: '尊重权威和规章制度，细心、有条理。关注实际和细节，较为谨慎保守，缺乏创造性，不喜欢冒险。', activities: '组织和处理数据，固定的、有秩序的工作，希望确切地知道工作标准。', careers: '会计师、银行出纳、行政助理、秘书、税务专家。' }
+        ];
+
+        // MBTI 24题
+        const mbti_items = [
+            { q: "在社交聚会上，你通常会...", a: "主动与许多人交谈，包括陌生人", b: "只与几个熟人交谈", k: ["E", "I"] },
+            { q: "当你需要充电时，你倾向于...", a: "找朋友聚会，热闹一下", b: "独自一人，享受安静", k: ["E", "I"] },
+            { q: "你更喜欢...", a: "成为注意力的焦点", b: "在后台默默观察", k: ["E", "I"] },
+            { q: "在团队中，你倾向于...", a: "积极发言，主导讨论", b: "先听后说，深思熟虑", k: ["E", "I"] },
+            { q: "你认识新朋友的速度...", a: "很快，我是自来熟", b: "很慢，我需要时间", k: ["E", "I"] },
+            { q: "周末你更愿意...", a: "出去参加活动或派对", b: "宅在家里看书或追剧", k: ["E", "I"] },
+            { q: "你更看重...", a: "确凿的事实和细节", b: "未来的潜力和可能性", k: ["S", "N"] },
+            { q: "在接收信息时，你偏向...", a: "相信实际经验和证据", b: "相信直觉和灵感", k: ["S", "N"] },
+            { q: "你更喜欢哪种描述...", a: "脚踏实地的", b: "天马行空的", k: ["S", "N"] },
+            { q: "对于做事方法，你倾向于...", a: "沿用传统的、被证明有效的方法", b: "尝试新颖的、与众不同的方法", k: ["S", "N"] },
+            { q: "你更擅长...", a: "处理具体的日常事务", b: "构思宏大的蓝图", k: ["S", "N"] },
+            { q: "看电影时，你更关注...", a: "画面、道具和情节的真实性", b: "故事背后的寓意和象征", k: ["S", "N"] },
+            { q: "做决定时，你更依赖...", a: "逻辑分析和客观标准", b: "个人价值观和他人感受", k: ["T", "F"] },
+            { q: "如果你是管理者，你会...", a: "坚持原则，公事公办", b: "考虑下属的情绪，酌情处理", k: ["T", "F"] },
+            { q: "你认为哪种品质更重要...", a: "理智与公正", b: "仁慈与和谐", k: ["T", "F"] },
+            { q: "当朋友遇到困难，你首先...", a: "分析问题，提供解决方案", b: "表达同情，提供情感支持", k: ["T", "F"] },
+            { q: "在争论中，你更看重...", a: "谁的道理是对的", b: "是否伤了和气", k: ["T", "F"] },
+            { q: "你更倾向于被...说服", a: "严密的逻辑推导", b: "动人的情感共鸣", k: ["T", "F"] },
+            { q: "处理工作任务时，你习惯...", a: "制定计划，按部就班", b: "灵活应对，随兴所至", k: ["J", "P"] },
+            { q: "你的办公桌通常...", a: "井井有条，分类清晰", b: "比较随性，看似杂乱", k: ["J", "P"] },
+            { q: "面对最后期限（DDL），你通常...", a: "提前完成，避免压力", b: "在最后一刻爆发灵感", k: ["J", "P"] },
+            { q: "旅行前，你会...", a: "查好攻略，定好行程", b: "到了再说，享受未知", k: ["J", "P"] },
+            { q: "你更喜欢...", a: "事情有定论，尘埃落定", b: "保留选择，不做定论", k: ["J", "P"] },
+            { q: "日常生活中，你...", a: "喜欢严格遵守时间表", b: "讨厌被时间表束缚", k: ["J", "P"] }
+        ];
+
+        // ==========================================
+        // 核心逻辑
+        // ==========================================
+
+        function startTest(type) {
+            document.getElementById('lobby').style.display = 'none';
+            document.getElementById('jspsych-target').style.display = 'block';
+            let timeline = [];
+
+            // ---------------- MBTI ----------------
+            if (type === 'mbti') {
+                timeline.push({
+                    type: jsPsychHtmlButtonResponse,
+                    stimulus: `<h2>MBTI 人格深度测评</h2><p>共24题。请选择更符合你<b>自然状态</b>下的一项。</p>`,
+                    choices: ['开始探索']
+                });
+
+                mbti_items.forEach((item, index) => {
+                    timeline.push({
+                        type: jsPsychHtmlButtonResponse,
+                        stimulus: `<h3 style="margin-bottom:30px">第 ${index+1}/24 题<br><br>${item.q}</h3>`,
+                        choices: [item.a, item.b],
+                        button_html: ['<button class="mbti-btn">%choice%</button>', '<button class="mbti-btn">%choice%</button>'],
+                        data: { test_part: 'question', dims: item.k }
+                    });
+                });
+
+                timeline.push({
+                    type: jsPsychHtmlButtonResponse,
+                    stimulus: '正在分析您的人格代码...',
+                    choices: [],
+                    on_load: function() {
+                        const responses = jsPsych.data.get().filter({test_part: 'question'}).values();
+                        let scores = { E:0, I:0, S:0, N:0, T:0, F:0, J:0, P:0 };
+                        
+                        responses.forEach(r => {
+                            let selectedDim = r.dims[r.response];
+                            scores[selectedDim] += 1;
+                        });
+
+                        // 计算类型代码
+                        let typeStr = "";
+                        typeStr += scores.E >= scores.I ? "E" : "I";
+                        typeStr += scores.S >= scores.N ? "S" : "N";
+                        typeStr += scores.T >= scores.F ? "T" : "F";
+                        typeStr += scores.J >= scores.P ? "J" : "P";
+
+                        // 获取对应的称号和文本
+                        const resultData = mbti_results[typeStr] || { title: typeStr, quote: "独特的人格", text: "未能匹配到描述。" };
+
+                        const rawData = [scores.E, scores.I, scores.S, scores.N, scores.T, scores.F, scores.J, scores.P];
+                        const chartData = rawData.map(s => (s / 6) * 100);
+
+                        const html = `
+                            <div class="result-box">
+                                <div class="badge">${resultData.title}</div>
+                                <div class="badge-subtitle">${typeStr}</div>
+                                <div class="quote">“${resultData.quote}”</div>
+                                
+                                <div style="position: relative; height: 300px; width: 100%; margin: 20px auto;">
+                                    <canvas id="resultChart"></canvas>
+                                </div>
+
+                                <div class="mbti-desc">
+                                    <b>💡 性格解析：</b><br>
+                                    ${resultData.text}
+                                </div>
+                            </div>
+                        `;
+                        document.getElementById('jspsych-content').innerHTML = html;
+                        
+                        const ctx = document.getElementById('resultChart').getContext('2d');
+                        new Chart(ctx, {
+                            type: 'radar',
+                            data: {
+                                labels: ["外向 E", "内向 I", "实感 S", "直觉 N", "思考 T", "情感 F", "判断 J", "感知 P"],
+                                datasets: [{
+                                    label: "维度倾向", data: chartData, fill: true,
+                                    backgroundColor: 'rgba(52, 152, 219, 0.2)', borderColor: 'rgb(52, 152, 219)',
+                                    pointBackgroundColor: 'rgb(52, 152, 219)'
+                                }]
+                            },
+                            options: {
+                                scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } },
+                                plugins: { legend: { display: false } }
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // ---------------- 霍兰德 ----------------
+            else if (type === 'holland') {
+                let userSelection = null;
+                timeline.push({
+                    type: jsPsychHtmlButtonResponse,
+                    stimulus: `<h2>🔭 霍兰德职业兴趣自测</h2><p>请浏览下方的6张画像卡片，<b>直接选择最符合你的一张</b>。</p>`,
+                    choices: [],
+                    on_start: function(trial) {
+                        trial.choices = holland_profiles.map(p => p.id);
+                        trial.button_html = holland_profiles.map(p => {
+                            return `<button class="holland-card-btn">
+                                        <div class="h-header"><span class="h-icon">${p.icon}</span><span class="h-title">${p.name}</span></div>
+                                        <div class="h-section"><span class="h-label">性格:</span>${p.traits}</div>
+                                        <div class="h-section"><span class="h-label">活动:</span>${p.activities}</div>
+                                    </button>`;
+                        });
+                        setTimeout(() => {
+                            const g = document.getElementById('jspsych-html-button-response-btngroup');
+                            if(g) { g.style.display='grid'; g.style.gridTemplateColumns='1fr 1fr'; g.style.gap='20px'; g.style.maxWidth='900px'; g.style.margin='0 auto'; }
+                        }, 10);
+                    },
+                    on_finish: function(data) { userSelection = holland_profiles[data.response]; }
+                });
+
+                timeline.push({
+                    type: jsPsychHtmlButtonResponse,
+                    stimulus: '生成报告...',
+                    choices: [],
+                    on_load: function() {
+                        const p = userSelection;
+                        const html = `
+                            <div class="result-box" style="text-align:left; max-width:800px;">
+                                <div class="hr-header">
+                                    <div class="hr-icon">${p.icon}</div>
+                                    <div class="hr-title">${p.name}</div>
+                                </div>
+                                <div class="hr-section"><span class="hr-label">👤 性格特征</span><div class="hr-text">${p.traits}</div></div>
+                                <div class="hr-section"><span class="hr-label">❤️ 喜欢的活动</span><div class="hr-text">${p.activities}</div></div>
+                                <div class="hr-section"><span class="hr-label">💼 推荐职业</span><div class="hr-text" style="font-weight:bold; color:#2c3e50;">${p.careers}</div></div>
+                            </div>
+                        `;
+                        document.getElementById('jspsych-content').innerHTML = html;
+                    }
+                });
+            }
+
+            jsPsych.run(timeline);
+        }
     </script>
-
 </body>
 </html>
